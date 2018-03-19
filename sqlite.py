@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-
 import sqlite3
-
 
 def dict_factory(cursor, row):
     d = {}
@@ -9,17 +7,13 @@ def dict_factory(cursor, row):
         d[col[0]] = row[idx]
     return d
 
-
-def createTable(db, table, cols, p=''):
+def createTable(db, table, cols):
     conn = sqlite3.connect(db)
     c = conn.cursor()
-    print p, cols
-    columns = ', '.join([str(p+co) for co in cols])
-    sql = '''create table if not exists %s(%s)''' %(table, columns)
-    sql = sql.lower()
+    columns = ', '.join(cols)
+    sql = 'create table if not exists %s(%s)' %(table, columns)
     c.execute(sql)
     conn.commit()
-
     return
 
 def getFields(rows):
@@ -32,78 +26,131 @@ def getFields(rows):
     result.sort()
     return result
 
-
-def form(v):
-    if type(v) is list:
-        return str(v)
-    else:
-        return v
-
-def dict2sqlite(db, table, rows, p=''):
+def dict2sqlite(db, table, rows):
     fields = getFields(rows)
-    createTable(db, table, fields, p=p)
+    createTable(db, table, fields)
     conn = sqlite3.connect(db)
     c = conn.cursor()
     for r in rows:
         vals = r.values()
-        fields = ', '.join( [str(p+rr) for rr in r.keys()] )
-        values = ', '.join( ['?' for v in vals] )
+        fields = ', '.join(r.keys())
+        values = ', '.join(['?' for v in vals])
         sql = 'insert into %s(%s) values (%s)' %(table,fields,values)
         try:
-            c.execute(sql, tuple([form(v) for v in vals]) )
-        except Exception as e:
-            pass
-            #print e
-            #print sql
-            #print tuple(vals)
-            #print r
+            c.execute(sql, tuple(vals) )
+        except:
+            print r
     conn.commit()
     return
 
+def getRows(db, table, limit=None, fields=None, groupby=None):
+    conn = sqlite3.connect(db)
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+
+    if fields == None:
+        fields = ' * '
+    else:
+        fields = ", ".join(fields)
+
+    sql = "select %s from  %s" %(fields, table)
+
+    if groupby != None:
+        sql+= ' group by %s' %(groupby)
+
+    if limit is not None:
+        sql += ' limit %s' %(limit)
+
+    print sql
+    c.execute(sql)
+    return c.fetchall()
+
+def getRow(db, table, id=1,fields=None):
+    conn = sqlite3.connect(db)
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+
+    if fields == None:
+        fields = '*'
+    else:
+        fields = ", ".join(fields)
+
+    sql = "select %s from  %s" % (fields, table)
+    sql += ' where ROWID = %s' %(id)
+
+    c.execute(sql)
+
+    return c.fetchone()
+
+
+def addColumns(db, table, fields):
+    conn = sqlite3.connect(db)
+    c = conn.cursor()
+    for f in fields:
+        try:
+            c.execute ('ALTER TABLE %s ADD COLUMN %s' %(table, f))
+            conn.commit()
+        except Exception as e:
+            print e
+    conn.close()
+    return
+
+
+#sqlite.update(db, table, {'lat':pos[0], 'lng': pos[1]}, {'ROWID':r})
+
+def update(db, table, results, cond):
+    '''
+
+    :param db:
+    :param table:
+    :param results:
+    :param cond:
+    :return:
+
+    isolation_level
+    f you want autocommit mode, then set isolation_level to None.
+    Otherwise leave it at its default, which will result in a plain “BEGIN” statement, or set it to one of SQLite’s supported isolation levels: “DEFERRED”, “IMMEDIATE” or “EXCLUSIVE”.
+
+    '''
+    conn = sqlite3.connect(db)
+    c = conn.cursor()
+    #conn.execute("PRAGMA read_uncommitted = true;");
+    conn.isolation_level = None
+    print ':::', conn.isolation_level
+
+    for values in results:
+        sql = 'update %s set ' %(table)
+        for k in values:
+            sql += " %s = '%s', " %(k, values[k])
+        sql = sql.strip(', ')
+        sql+= ' where '
+        for cc in cond:
+            sql += ' %s = %s, ' %(cc, cond[cc])
+        sql = sql.strip(', ')
+        print sql
+        print '.'
+        c.execute(sql)
+    conn.commit()
+    return
+
+def getTables():
+    return
+
+
+def sql(db, sql):
+    '''
+    pragma table_info(booksfull)
+    '''
+    conn = sqlite3.connect(db)
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+    c.execute(sql)
+    try :
+        result = c.fetchall()
+    except:
+        result = None
+    return result
+
+
 if __name__ == "__main__":
-    a =[
-        {'pricing_quote__price__total__amount': 66, 'user__id': None,
-         'pricing_quote__rate_with_service_fee__currency': u'EUR', 'listing__id': 19720843,
-         'listing__person_capacity': 2, 'pricing_quote__rate__currency': u'EUR', 'user__is_superhost': None,
-         'listing__lng': 2.1730616696154303, 'verified_card': False, 'listing__bathrooms': 1.0,
-         'listing__is_rebookable': False, 'luxury_pdp': None, 'listing__guest_label': u'2 hu\xe9spedes',
-         'pricing_quote__rate__amount': 59, 'listing__city': u'Barcelona', 'listing__is_new_listing': False,
-         'listing__reviews_count': 5, 'listing__beds': 1, 'listing__lat': 41.40861118479532,
-         'listing__is_superhost': False, 'pricing_quote__can_instant_book': False,
-         'pricing_quote__rate_with_service_fee__amount': 66, 'verified_pdp': False,
-         'pricing_quote__rate_type': u'nightly'},
-        {'pricing_quote__price__total__amount': 47, 'user__id': None,
-         'pricing_quote__rate_with_service_fee__currency': u'EUR', 'listing__id': 14408281,
-         'listing__person_capacity': 1, 'pricing_quote__rate__currency': u'EUR', 'user__is_superhost': None,
-         'listing__lng': 2.1517532503320393, 'verified_card': False, 'listing__bathrooms': 1.5,
-         'listing__is_rebookable': False, 'luxury_pdp': None, 'listing__guest_label': u'1 hu\xe9sped',
-         'pricing_quote__rate__amount': 41, 'listing__city': u'Barcelona', 'listing__is_new_listing': False,
-         'listing__reviews_count': 9, 'listing__beds': 1, 'listing__lat': 41.40848965964156,
-         'listing__is_superhost': False, 'pricing_quote__can_instant_book': False,
-         'pricing_quote__rate_with_service_fee__amount': 47, 'verified_pdp': False,
-         'pricing_quote__rate_type': u'nightly'},
-        {'pricing_quote__price__total__amount': 113, 'user__id': None,
-         'pricing_quote__rate_with_service_fee__currency': u'EUR', 'listing__id': 17409285,
-         'listing__person_capacity': 4, 'pricing_quote__rate__currency': u'EUR', 'user__is_superhost': None,
-         'listing__lng': 2.1816854829141232, 'verified_card': False, 'listing__bathrooms': 1.0,
-         'listing__is_rebookable': False, 'luxury_pdp': None, 'listing__guest_label': u'4 hu\xe9spedes',
-         'pricing_quote__rate__amount': 100, 'listing__city': u'Barcelona', 'listing__is_new_listing': False,
-         'listing__reviews_count': 0, 'listing__beds': 1, 'listing__lat': 41.4100163954684,
-         'listing__is_superhost': False, 'pricing_quote__can_instant_book': False,
-         'pricing_quote__rate_with_service_fee__amount': 113, 'verified_pdp': False,
-         'pricing_quote__rate_type': u'nightly'},
-        {'pricing_quote__price__total__amount': 42, 'user__id': None,
-         'pricing_quote__rate_with_service_fee__currency': u'EUR', 'listing__id': 14862340,
-         'listing__person_capacity': 2, 'pricing_quote__rate__currency': u'EUR', 'user__is_superhost': None,
-         'listing__lng': 2.2037196799827687, 'verified_card': False, 'listing__bathrooms': 1.0,
-         'listing__is_rebookable': False, 'luxury_pdp': None, 'listing__guest_label': u'2 hu\xe9spedes',
-         'pricing_quote__rate__amount': 37, 'listing__city': u'Santa Coloma de Gramenet',
-         'listing__is_new_listing': False, 'listing__reviews_count': 7, 'listing__beds': 1,
-         'listing__lat': 41.444852292911584, 'listing__is_superhost': False, 'pricing_quote__can_instant_book': False,
-         'pricing_quote__rate_with_service_fee__amount': 42, 'verified_pdp': False,
-         'pricing_quote__rate_type': u'nightly'}
-
-    ]
-
-    dict2sqlite('db.sqlite', 'tab', a, p='')
-    print ''
+    print
