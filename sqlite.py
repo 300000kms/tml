@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 import sqlite3
 
+
 def dict_factory(cursor, row):
     d = {}
     for idx, col in enumerate(cursor.description):
         d[col[0]] = row[idx]
     return d
+
 
 def createTable(db, table, cols):
     conn = sqlite3.connect(db)
@@ -15,6 +17,7 @@ def createTable(db, table, cols):
     c.execute(sql)
     conn.commit()
     return
+
 
 def getFields(rows):
     fields = set([])
@@ -26,10 +29,12 @@ def getFields(rows):
     result.sort()
     return result
 
+
 def dict2sqlite(db, table, rows):
     fields = getFields(rows)
     createTable(db, table, fields)
     conn = sqlite3.connect(db)
+    #conn.isolation_level = None
     c = conn.cursor()
     for r in rows:
         vals = r.values()
@@ -38,10 +43,17 @@ def dict2sqlite(db, table, rows):
         sql = 'insert into %s(%s) values (%s)' %(table,fields,values)
         try:
             c.execute(sql, tuple(vals) )
-        except:
+        except Exception as e:
+            if ' '.join(str(e).split(' ')[:6]) == 'table %s has no column named' %(table):
+                print '>>>> do new column', e
+                addColumns(db, table, [str(e).split(' ')[-1]])
+                return dict2sqlite(db, table, rows)
+            print '!!!!!!!!!!!!!!!!!!!!!!!!!'
+            print e
             print r
     conn.commit()
     return
+
 
 def getRows(db, table, limit=None, fields=None, groupby=None):
     conn = sqlite3.connect(db)
@@ -64,6 +76,7 @@ def getRows(db, table, limit=None, fields=None, groupby=None):
     print sql
     c.execute(sql)
     return c.fetchall()
+
 
 def getRow(db, table, id=1,fields=None):
     conn = sqlite3.connect(db)
@@ -100,7 +113,6 @@ def addColumns(db, table, fields):
 
 def update(db, table, results, cond):
     '''
-
     :param db:
     :param table:
     :param results:
@@ -110,8 +122,8 @@ def update(db, table, results, cond):
     isolation_level
     f you want autocommit mode, then set isolation_level to None.
     Otherwise leave it at its default, which will result in a plain “BEGIN” statement, or set it to one of SQLite’s supported isolation levels: “DEFERRED”, “IMMEDIATE” or “EXCLUSIVE”.
-
     '''
+
     conn = sqlite3.connect(db)
     c = conn.cursor()
     #conn.execute("PRAGMA read_uncommitted = true;");
@@ -132,6 +144,7 @@ def update(db, table, results, cond):
         c.execute(sql)
     conn.commit()
     return
+
 
 def getTables():
     return
