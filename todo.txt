@@ -1,0 +1,4 @@
+- los nombres de los campos siempre en minusculas
+- reemplazar espacios por _
+- prohibir y reemplazar caracteres especiales
+- verificar el tipo de campo que estamos metiendo

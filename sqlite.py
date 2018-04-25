@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import sqlite3
-
+import os
 
 def dict_factory(cursor, row):
     d = {}
@@ -8,14 +8,32 @@ def dict_factory(cursor, row):
         d[col[0]] = row[idx]
     return d
 
+def nmz(c):
+    '''
+    normaliza los campos del sqlite
+    '''
+    c = c.lower()
+    c = c.replace(' ', '_')
+    return c
 
 def createTable(db, table, cols):
-    conn = sqlite3.connect(db)
-    c = conn.cursor()
-    columns = ', '.join(cols)
-    sql = 'create table if not exists %s(%s)' %(table, columns)
-    c.execute(sql)
-    conn.commit()
+    try:
+        cls = []
+        for c in cols:
+            cls.append(nmz(c))
+        conn = sqlite3.connect(db)
+        c = conn.cursor()
+        columns = ', '.join(cls)
+        sql = 'create table if not exists %s(%s)' %(table, columns)
+        c.execute(sql)
+        conn.commit()
+    except Exception as e:
+        if str(e) == 'unable to open database file':
+            folder = ''
+            if len(db.split('/'))>1 and os.path.isdir('/'.join(db.split('/')[0:-1]))==False:
+                os.makedirs('/'.join(db.split('/')[0:-1]))
+                return createTable(db, table, cols)
+        print e
     return
 
 
@@ -38,7 +56,7 @@ def dict2sqlite(db, table, rows):
     c = conn.cursor()
     for r in rows:
         vals = r.values()
-        fields = ', '.join(r.keys())
+        fields = ', '.join([nmz(k) for k in r.keys()])
         values = ', '.join(['?' for v in vals])
         sql = 'insert into %s(%s) values (%s)' %(table,fields,values)
         try:
@@ -48,6 +66,7 @@ def dict2sqlite(db, table, rows):
                 print '>>>> do new column', e
                 addColumns(db, table, [str(e).split(' ')[-1]])
                 return dict2sqlite(db, table, rows)
+
             print '!!!!!!!!!!!!!!!!!!!!!!!!!'
             print e
             print r
