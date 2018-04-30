@@ -23,7 +23,7 @@ def createTable(db, table, cols):
             cls.append(nmz(c))
         conn = sqlite3.connect(db)
         c = conn.cursor()
-        columns = ', '.join(cls)
+        columns = ', '.join([ "'%s'" %(cl) for cl in cls ])
         sql = 'create table if not exists %s(%s)' %(table, columns)
         c.execute(sql)
         conn.commit()
@@ -56,7 +56,7 @@ def dict2sqlite(db, table, rows):
     c = conn.cursor()
     for r in rows:
         vals = r.values()
-        fields = ', '.join([nmz(k) for k in r.keys()])
+        fields = ', '.join(["'%s'" %(nmz(k)) for k in r.keys()])
         values = ', '.join(['?' for v in vals])
         sql = 'insert into %s(%s) values (%s)' %(table,fields,values)
         try:
@@ -68,6 +68,7 @@ def dict2sqlite(db, table, rows):
                 return dict2sqlite(db, table, rows)
 
             print '!!!!!!!!!!!!!!!!!!!!!!!!!'
+            print sql
             print e
             print r
     conn.commit()
