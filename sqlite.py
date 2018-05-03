@@ -23,7 +23,7 @@ def createTable(db, table, cols):
             cls.append(nmz(c))
         conn = sqlite3.connect(db)
         c = conn.cursor()
-        columns = ', '.join([ "'%s'" %(cl) for cl in cls ])
+        columns = ', '.join([ "'%s'" %(cl) for cl in cls ].sort())
         sql = 'create table if not exists %s(%s)' %(table, columns)
         c.execute(sql)
         conn.commit()
