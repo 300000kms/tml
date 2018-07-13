@@ -14,16 +14,19 @@ def nmz(c):
     '''
     c = c.lower()
     c = c.replace(' ', '_')
+    c = c.replace('@', '_')
     return c
 
-def createTable(db, table, cols):
+def createTable(db, table, cols, p=''):
     try:
         cls = []
         for c in cols:
             cls.append(nmz(c))
         conn = sqlite3.connect(db)
         c = conn.cursor()
-        columns = ', '.join([ "'%s'" %(cl) for cl in cls ].sort())
+        cols =[ "'%s%s'" %(p,cl) for cl in cls ]
+        cols.sort()
+        columns = ', '.join(cols)
         sql = 'create table if not exists %s(%s)' %(table, columns)
         c.execute(sql)
         conn.commit()
@@ -40,7 +43,6 @@ def createTable(db, table, cols):
 def getFields(rows):
     fields = set([])
     for r in rows:
-        #print r
         for k in r.keys():
             fields.add(k)
     result = list(fields)
@@ -48,7 +50,7 @@ def getFields(rows):
     return result
 
 
-def dict2sqlite(db, table, rows):
+def dict2sqlite(db, table, rows, p=''):
     fields = getFields(rows)
     createTable(db, table, fields)
     conn = sqlite3.connect(db)
@@ -56,7 +58,7 @@ def dict2sqlite(db, table, rows):
     c = conn.cursor()
     for r in rows:
         vals = r.values()
-        fields = ', '.join(["'%s'" %(nmz(k)) for k in r.keys()])
+        fields = ', '.join(["'%s%s'" %(p,nmz(k)) for k in r.keys()])
         values = ', '.join(['?' for v in vals])
         sql = 'insert into %s(%s) values (%s)' %(table,fields,values)
         try:
@@ -66,7 +68,6 @@ def dict2sqlite(db, table, rows):
                 print '>>>> do new column', e
                 addColumns(db, table, [str(e).split(' ')[-1]])
                 return dict2sqlite(db, table, rows)
-
             print '!!!!!!!!!!!!!!!!!!!!!!!!!'
             print sql
             print e
