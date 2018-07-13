@@ -14,6 +14,7 @@ def nmz(c):
     '''
     c = c.lower()
     c = c.replace(' ', '_')
+    c = c.replace('-', '_')
     c = c.replace('@', '_')
     return c
 
@@ -35,7 +36,7 @@ def createTable(db, table, cols, p=''):
             folder = ''
             if len(db.split('/'))>1 and os.path.isdir('/'.join(db.split('/')[0:-1]))==False:
                 os.makedirs('/'.join(db.split('/')[0:-1]))
-                return createTable(db, table, cols)
+                return createTable(db, table, cols, p=p)
         print e
     return
 
@@ -52,13 +53,18 @@ def getFields(rows):
 
 def dict2sqlite(db, table, rows, p=''):
     fields = getFields(rows)
-    createTable(db, table, fields)
+    createTable(db, table, fields, p=p)
     conn = sqlite3.connect(db)
     #conn.isolation_level = None
     c = conn.cursor()
     for r in rows:
         vals = r.values()
         fields = ', '.join(["'%s%s'" %(p,nmz(k)) for k in r.keys()])
+        #fix type values
+        for n,v in enumerate(vals):
+            if type(v) is list:
+                vals[n]=str(v)
+
         values = ', '.join(['?' for v in vals])
         sql = 'insert into %s(%s) values (%s)' %(table,fields,values)
         try:
