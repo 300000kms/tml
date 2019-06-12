@@ -1,6 +1,41 @@
 # -*- coding: utf-8 -*-
-import sqlite3
 import os
+import geo
+import csv
+try:
+    from pyspatialite import dbapi2 as sqlite3
+except:
+    import sqlite3
+
+
+def geocode(db, table, key, addressList, x, y, q, a, i, t):
+    '''
+    db: sqlite databse path
+    table: table name
+    key: google api key
+    addressList: addres fields list from the table
+    x: where store longitude
+    y: where store latitude
+    q: where store quality
+    a: where store formatted address,
+    i: where store place_id
+    t: where store type of place
+    '''
+    addColumns(db, table, [x, y, q, a, i, t])
+    conn = sqlite3.connect(db)
+    conn.row_factory = dict_factory
+    c = conn.cursor()
+    c.execute('select rowid, * from '+table)
+    results = c.fetchall()
+    rows =[]
+    for r in results:
+        add = ', '.join( [r[k] or '' for k in addressList] )
+        xx,yy,qq,aa,ii,tt = geo.geocode(add, key)
+        row = [{x:xx, y:yy, a:aa, q:qq , i:ii, t:tt}]
+        update(db, table, row, {'rowid':r['rowid']})
+    return
+
+
 
 def dict_factory(cursor, row):
     d = {}
@@ -51,20 +86,20 @@ def getFields(rows):
     return result
 
 
-def dict2sqlite(db, table, rows, p=''):
+def dict2sqlite(db, table, rows, isolation=False):
+    print 'add %s rows' %(len(rows))
     fields = getFields(rows)
-    createTable(db, table, fields, p=p)
+    print (db, table, fields)
+    createTable(db, table, fields)
     conn = sqlite3.connect(db)
-    #conn.isolation_level = None
+    if isolation:
+        conn.isolation_level = None
+    #“DEFERRED”, “IMMEDIATE” or “EXCLUSIVE”
+    #conn.isolation_level = "EXCLUSIVE"
     c = conn.cursor()
     for r in rows:
         vals = r.values()
-        fields = ', '.join(["'%s%s'" %(p,nmz(k)) for k in r.keys()])
-        #fix type values
-        for n,v in enumerate(vals):
-            if type(v) is list:
-                vals[n]=str(v)
-
+        fields = ', '.join(r.keys())
         values = ', '.join(['?' for v in vals])
         sql = 'insert into %s(%s) values (%s)' %(table,fields,values)
         try:
@@ -72,12 +107,13 @@ def dict2sqlite(db, table, rows, p=''):
         except Exception as e:
             if ' '.join(str(e).split(' ')[:6]) == 'table %s has no column named' %(table):
                 print '>>>> do new column', e
+                conn.close()
                 addColumns(db, table, [str(e).split(' ')[-1]])
                 return dict2sqlite(db, table, rows)
             print '!!!!!!!!!!!!!!!!!!!!!!!!!'
-            print sql
             print e
             print r
+            print sql
     conn.commit()
     return
 
